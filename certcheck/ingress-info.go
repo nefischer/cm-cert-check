@@ -5,5 +5,6 @@ type IngressInfo struct {
     Ingress               string
     CertManagerUsages     []CertManagerUsage
     CertificateExpiryDate string
-    Hosts                 []string
+    Hosts                 []HostInfo
+    CertManagerCount      int
 }
