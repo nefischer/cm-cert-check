@@ -87,7 +87,8 @@ func (c *IngressCertificateChecker) Run() {
     
     go c.GetIngressInfos()
     
-    formatter := InfoPrettyFormatter{
+    //formatter := InfoPrettyFormatter{
+    formatter := InfoCSVFormatter{
         IngressInfoChannel: c.IngressInfoChannel,
     }
     formatter.Format()
