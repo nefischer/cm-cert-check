@@ -3,6 +3,7 @@ package main
 import (
 	"cm-cert-check/certcheck"
 	"flag"
+	"fmt"
 	"os"
 	"time"
 
@@ -27,6 +28,10 @@ func main() {
 	flag.Parse()
 
 	logger := newLogger()
+
+	if *kubeconfigPath == "" {
+		*kubeconfigPath = fmt.Sprintf("%s/%s", os.Getenv("HOME"), ".kube/config")
+	}
 
 	cli, err := certcheck.NewClientSet(*kubeconfigPath)
 	if err != nil {

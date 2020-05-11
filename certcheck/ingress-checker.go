@@ -3,6 +3,7 @@ package certcheck
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"fmt"
 	"github.com/sirupsen/logrus"
 	"k8s.io/api/extensions/v1beta1"
 	"k8s.io/client-go/kubernetes"
@@ -45,7 +46,7 @@ func (c *IngressCertificateChecker) GetIngressInfos() {
 	ingresses, err := extApi.Ingresses("").List(listOptions)
 
 	if err != nil {
-		c.Logger.Error(err)
+		c.Logger.Error("GetIngressInfos", err)
 		return
 	}
 
@@ -74,7 +75,7 @@ func (c *IngressCertificateChecker) GetIngressInfos() {
 
 		hostInfos, err := c.GetHostInfos(ingress)
 		if err != nil {
-			c.Logger.Error(err)
+			c.Logger.Error(fmt.Errorf("ingress %s; namespace %s: %s/%v", ingress.Name, ingress.Namespace, "GetHostInfos", err))
 		}
 
 		c.IngressInfoChannel <- IngressInfo{
@@ -105,7 +106,7 @@ func (c *IngressCertificateChecker) GetHostInfos(ingress v1beta1.Ingress) ([]Hos
 
 	certs, err := c.GetCerts(ingress)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%s %v", "GetCerts", err)
 	}
 
 	for _, tlsBlock := range ingress.Spec.TLS {
@@ -126,7 +127,7 @@ func (c *IngressCertificateChecker) GetHostInfos(ingress v1beta1.Ingress) ([]Hos
 			for _, c := range cert.Certificate {
 				x509Cert, err := x509.ParseCertificate(c)
 				if err != nil {
-					return nil, err
+					return nil, fmt.Errorf("ingress %s; namespace %s: %s %v", ingress.Name, ingress.Namespace, "ParseCertificate", err)
 				}
 				for _, certDNSName := range x509Cert.DNSNames {
 					if certDNSName == host {
@@ -142,7 +143,7 @@ func (c *IngressCertificateChecker) GetHostInfos(ingress v1beta1.Ingress) ([]Hos
 				for _, c := range cert.Certificate {
 					x509Cert, err := x509.ParseCertificate(c)
 					if err != nil {
-						return nil, err
+						return nil, fmt.Errorf("%s %v", "ParseCertificate", err)
 					}
 					for _, certDNSName := range x509Cert.DNSNames {
 						hostsInCert = append(hostsInCert, certDNSName)
@@ -150,7 +151,7 @@ func (c *IngressCertificateChecker) GetHostInfos(ingress v1beta1.Ingress) ([]Hos
 				}
 			}
 
-			c.Logger.Warningf("Ingress %d has TLS host %s specified but no matching certificates (hosts in cert: %v)", ingress.Name, host, hostsInCert)
+			c.Logger.Warningf("ingress %s in %s has TLS host %s specified but no matching certificates (hosts in cert: %v)", ingress.Name, ingress.Namespace, host, hostsInCert)
 		}
 	}
 
@@ -161,6 +162,9 @@ func (c *IngressCertificateChecker) GetCerts(ingress v1beta1.Ingress) ([]tls.Cer
 	var certs []tls.Certificate
 	for _, ingressTLS := range ingress.Spec.TLS {
 		secretName := ingressTLS.SecretName
+		if secretName == "" {
+			return nil, fmt.Errorf("secretName is not defined but should be")
+		}
 		core := c.KubeClient.CoreV1()
 		secret, err := core.Secrets(ingress.Namespace).Get(secretName, metav1.GetOptions{})
 		if err != nil {
