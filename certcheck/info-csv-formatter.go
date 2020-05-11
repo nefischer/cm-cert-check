@@ -30,7 +30,14 @@ func (f *InfoCSVFormatter) Format() {
             row = fmt.Sprintf("%s, %v", row, usage.IsManaging)
         }
         for _, hostInfo := range info.Hosts {
-            row = fmt.Sprintf("%s, %s, %s, %s", row, hostInfo.DNSName, hostInfo.ExpiryDate.Format("2006-01-02"), hostInfo.IssuedBy)
+            var expiryDate string
+            if hostInfo.ExpiryDate != nil {
+                expiryDate = hostInfo.ExpiryDate.Format("2006-01-02")
+            } else {
+                expiryDate = ""
+            }
+            
+            row = fmt.Sprintf("%s, %s, %s, %s", row, hostInfo.DNSName, expiryDate, hostInfo.IssuedBy)
         }
         fmt.Println(row)
     }

@@ -60,11 +60,16 @@ func (c *IngressCertificateChecker) GetIngressInfos() {
         allCertManUsages := c.GetActiveManagers(c.CertManagerLabelFilter, ingress.Labels)
         allCertManUsages = append(allCertManUsages, c.GetActiveManagers(c.CertManagerAnnotationsFilter, ingress.Annotations)...)
         
-        certManagerCount :=0
+        certManagerCount := 0
         for _, usage := range allCertManUsages {
             if usage.IsManaging {
                 certManagerCount = certManagerCount + 1
             }
+        }
+        
+        if len(hosts) == 0 && certManagerCount == 0 {
+            // no TLS settings; must be an HTTP endpoint
+            continue
         }
         
         hostInfos, err := c.GetHostInfos(ingress)
@@ -73,11 +78,11 @@ func (c *IngressCertificateChecker) GetIngressInfos() {
         }
         
         c.IngressInfoChannel <- IngressInfo{
-            Ingress:               ingress.Name,
-            Namespace:             ingress.Namespace,
-            CertManagerUsages:     allCertManUsages,
-            CertManagerCount:      certManagerCount,
-            Hosts:                 hostInfos,
+            Ingress:           ingress.Name,
+            Namespace:         ingress.Namespace,
+            CertManagerUsages: allCertManUsages,
+            CertManagerCount:  certManagerCount,
+            Hosts:             hostInfos,
         }
     }
 }
@@ -131,12 +136,28 @@ func (c *IngressCertificateChecker) GetHostInfos(ingress v1beta1.Ingress) ([]Hos
                 }
             }
         }
+        if hostInfos[i].ExpiryDate == nil {
+            var hostsInCert []string
+            for _, cert := range certs {
+                for _, c := range cert.Certificate {
+                    x509Cert, err := x509.ParseCertificate(c)
+                    if err != nil {
+                        return nil, err
+                    }
+                    for _, certDNSName := range x509Cert.DNSNames {
+                        hostsInCert = append(hostsInCert, certDNSName)
+                    }
+                }
+            }
+            
+            c.Logger.Warningf("Ingress %d has TLS host %s specified but no matching certificates (hosts in cert: %v)", ingress.Name, host, hostsInCert)
+        }
     }
     
     return hostInfos, nil
 }
 
-func (c *IngressCertificateChecker) GetCerts(ingress v1beta1.Ingress) ([]tls.Certificate,error) {
+func (c *IngressCertificateChecker) GetCerts(ingress v1beta1.Ingress) ([]tls.Certificate, error) {
     var certs []tls.Certificate
     for _, ingressTLS := range ingress.Spec.TLS {
         secretName := ingressTLS.SecretName

@@ -47,7 +47,12 @@ func main() {
             {
                 Key:          "certmanager.k8s.io/enabled",
                 Value:        "true",
-                FriendlyName: "js-cm-v0.8",
+                FriendlyName: "js-cm-legacy",
+            },
+            {
+                Key:          "cert-manager.io/enabled",
+                Value:        "true",
+                FriendlyName: "js-cmio",
             },
         },
     }
