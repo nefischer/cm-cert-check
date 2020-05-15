@@ -1,9 +1,9 @@
 package certcheck
 
 type CertManagerFilter struct {
-	Key          string
-	Value        string
-	FriendlyName string
+	Key          string `yaml: "key"`
+	Value        string `yaml: "value"`
+	FriendlyName string `yaml: "friendlyName"`
 }
 
 type CertManagerUsage struct {
