@@ -2,6 +2,7 @@ package main
 
 import (
 	"cm-cert-check/certcheck"
+	"context"
 	"flag"
 	"fmt"
 	"os"
@@ -21,7 +22,8 @@ func newLogger() *logrus.Logger {
 }
 
 var (
-	kubeconfigPath = flag.String("kubeconfig", "", "Path to kubeconfig file if running outside the Kubernetes cluster")
+	kubeconfigPath = flag.String("kubeconfig", fmt.Sprintf("%s/%s", os.Getenv("HOME"), ".kube/config"), "Path to kubeconfig file if running outside the Kubernetes cluster")
+	kubeContext    = flag.String("context", "", "kube context to use (uses current context if not specified)")
 )
 
 func main() {
@@ -29,18 +31,22 @@ func main() {
 
 	logger := newLogger()
 
-	if *kubeconfigPath == "" {
-		*kubeconfigPath = fmt.Sprintf("%s/%s", os.Getenv("HOME"), ".kube/config")
-	}
+	logger.Infof("Using kube context %s", *kubeContext)
 
-	cli, err := certcheck.NewClientSet(*kubeconfigPath)
+	kubeClientset, err := certcheck.GetKubeClientSet(*kubeconfigPath, *kubeContext)
 	if err != nil {
 		logger.Fatalf("Error creating Kubernetes client, exiting: %v", err)
+	}
+	
+	cmioClient, err := certcheck.GetCmioClient()
+	if err != nil {
+		logger.Fatalf("Error creating cert-manager client, exiting: %v", err)
 	}
 
 	checker := certcheck.IngressCertificateChecker{
 		Logger:     logger,
-		KubeClient: cli,
+		KubeClient: kubeClientset,
+		CmioClient: cmioClient,
 		CertManagerLabelFilter: []certcheck.CertManagerFilter{
 			{
 				Key:          "stable.k8s.psg.io/kcm.class",
@@ -60,6 +66,7 @@ func main() {
 				FriendlyName: "js-cmio",
 			},
 		},
+		Ctx: context.TODO(),
 	}
 
 	checker.Run()
