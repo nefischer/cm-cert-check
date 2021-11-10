@@ -5,12 +5,13 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"path/filepath"
+
 	cmioclientset "github.com/jetstack/cert-manager/pkg/client/clientset/versioned/typed/certmanager/v1alpha3"
 	"github.com/sirupsen/logrus"
-	networkingv1Beta1 "k8s.io/api/networking/v1beta1"
+	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/client-go/kubernetes"
-	"path/filepath"
-	
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -21,7 +22,7 @@ type IngressCertificateChecker struct {
 	CertManagerLabelFilter       []CertManagerFilter
 	CertManagerAnnotationsFilter []CertManagerFilter
 	IngressInfoChannel           chan IngressInfo
-	Ctx							 context.Context
+	Ctx                          context.Context
 }
 
 func (c *IngressCertificateChecker) GetActiveManagers(filters []CertManagerFilter, metadataMap map[string]string) []CertManagerUsage {
@@ -47,7 +48,7 @@ func (c *IngressCertificateChecker) GetIngressInfos() {
 	defer close(c.IngressInfoChannel)
 
 	listOptions := metav1.ListOptions{}
-	networkingApi := c.KubeClient.NetworkingV1beta1()
+	networkingApi := c.KubeClient.NetworkingV1()
 	ingresses, err := networkingApi.Ingresses("").List(c.Ctx, listOptions)
 
 	if err != nil {
@@ -78,7 +79,7 @@ func (c *IngressCertificateChecker) GetIngressInfos() {
 			continue
 		}
 
-		hostInfos, err := c.GetHostInfos(ingress, certManagerCount==0)
+		hostInfos, err := c.GetHostInfos(ingress, certManagerCount == 0)
 		if err != nil {
 			c.Logger.Error(fmt.Errorf("ingress %s; namespace %s: %s/%v", ingress.Name, ingress.Namespace, "GetHostInfos", err))
 		}
@@ -105,7 +106,7 @@ func (c *IngressCertificateChecker) Run() {
 	formatter.Format()
 }
 
-func (c *IngressCertificateChecker) GetHostInfos(ingress networkingv1Beta1.Ingress, checkCertResource bool) ([]HostInfo, error) {
+func (c *IngressCertificateChecker) GetHostInfos(ingress networkingv1.Ingress, checkCertResource bool) ([]HostInfo, error) {
 	var hostInfos []HostInfo
 	var hosts []string
 
@@ -164,7 +165,7 @@ func (c *IngressCertificateChecker) GetHostInfos(ingress networkingv1Beta1.Ingre
 	return hostInfos, nil
 }
 
-func (c *IngressCertificateChecker) GetCerts(ingress networkingv1Beta1.Ingress, checkCertResource bool) ([]tls.Certificate, error) {
+func (c *IngressCertificateChecker) GetCerts(ingress networkingv1.Ingress, checkCertResource bool) ([]tls.Certificate, error) {
 	var certs []tls.Certificate
 	for _, ingressTLS := range ingress.Spec.TLS {
 		secretName := ingressTLS.SecretName
