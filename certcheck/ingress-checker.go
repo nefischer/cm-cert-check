@@ -9,6 +9,7 @@ import (
 	"github.com/sirupsen/logrus"
 	networkingv1Beta1 "k8s.io/api/networking/v1beta1"
 	"k8s.io/client-go/kubernetes"
+	"path/filepath"
 	
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -134,7 +135,8 @@ func (c *IngressCertificateChecker) GetHostInfos(ingress networkingv1Beta1.Ingre
 					return nil, fmt.Errorf("ingress %s; namespace %s: %s %v", ingress.Name, ingress.Namespace, "ParseCertificate", err)
 				}
 				for _, certDNSName := range x509Cert.DNSNames {
-					if certDNSName == host {
+					matched, err := filepath.Match(certDNSName, host)
+					if err == nil && matched || certDNSName == host {
 						hostInfos[i].ExpiryDate = &x509Cert.NotAfter
 						hostInfos[i].IssuedBy = x509Cert.Issuer.CommonName
 					}
